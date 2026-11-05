@@ -8,6 +8,8 @@ const $ = (selector) => document.querySelector(selector);
 const grid = $('#wallpaper-grid');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const url = (path) => path.split('/').map(encodeURIComponent).join('/');
+const rawAssetUrl = (path) => `https://raw.githubusercontent.com/LonelyOmen/xlonely-wallpapers/main/${url(path)}`;
+const downloadAssetUrl = (path) => `https://github.com/LonelyOmen/xlonely-wallpapers/raw/refs/heads/main/${url(path)}?download=1`;
 
 function setupColors() {
   const root = $('#color-filters');
@@ -81,11 +83,11 @@ function showViewer(item) {
     node.loop = true;
     node.playsInline = true;
     const source = document.createElement('source');
-    source.src = url(item.file);
+    source.src = rawAssetUrl(item.file);
     node.append(source);
   } else {
     node = document.createElement('img');
-    node.src = url(item.file);
+    node.src = rawAssetUrl(item.file);
     node.alt = item.name;
   }
   media.append(node);
@@ -93,8 +95,9 @@ function showViewer(item) {
   $('#viewer-name').textContent = item.name;
   $('#viewer-meta').textContent = [item.resolution, item.format, item.fps ? `${item.fps} FPS` : null].filter(Boolean).join('  ·  ');
   const download = $('#download-link');
-  download.href = url(item.file);
-  download.download = item.file.split('/').pop();
+  download.href = downloadAssetUrl(item.file);
+  download.target = '_blank';
+  download.rel = 'noreferrer';
   $('#viewer').showModal();
 }
 

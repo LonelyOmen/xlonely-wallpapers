@@ -7,11 +7,11 @@ A browsable, color-filterable gallery of my still and live wallpaper collection.
 
 ## Browse the collection
 
-The gallery includes search, Still/Live tabs, color filters, resolution and format labels, video frame rates where available, full-size previews, and direct downloads. The original files are in `wallpapers/still/` and `wallpapers/live/`; the smaller generated images in `previews/` are only for the gallery cards.
+The gallery includes search, Still/Live tabs, color filters, resolution and format labels, video frame rates where available, full-size previews, and direct downloads. Wallpaper originals load from this repository, keeping the Pages deployment small. The original files are in `wallpapers/still/` and `wallpapers/live/`; the smaller generated images in `previews/` are only for the gallery cards.
 
 ## Publish the website with GitHub Pages
 
-After pushing the repository, open **Settings → Pages** and set the source to **Deploy from a branch**, branch **`main`**, folder **`/ (root)`**. Save and wait for the Pages build to finish. The public gallery URL is the link above.
+The repository includes a GitHub Actions workflow that publishes only the gallery, catalog, and small preview images. The full wallpaper files stay in the repository and are opened/downloaded directly from GitHub. In **Settings → Pages**, choose **GitHub Actions** as the source. The workflow deploys the site when gallery files change on `main`. The public gallery URL is the link above.
 
 ## Add or update wallpapers
 
