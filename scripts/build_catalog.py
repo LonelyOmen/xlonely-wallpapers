@@ -83,6 +83,13 @@ def detect_colors(preview):
     except Exception:
         return []
 
+def animated_gif(path):
+    if path.suffix.lower() != '.gif': return False
+    try:
+        with Image.open(path) as im: return getattr(im, 'n_frames', 1) > 1
+    except Exception:
+        return False
+
 def nice_name(name):
     text=re.sub(r'[_-]+',' ',Path(name).stem)
     text=re.sub(r'\s+',' ',text).strip()
@@ -97,6 +104,7 @@ def main():
         for src in sorted(folder.iterdir(),key=lambda p:p.name.casefold()):
             if not src.is_file() or src.suffix.lower() not in (IMAGE_EXTS|VIDEO_EXTS): continue
             is_video=kind=='live' or src.suffix.lower() in VIDEO_EXTS
+            item_kind='live' if is_video or animated_gif(src) else kind
             preview_name=src.name+'.jpg' if is_video else src.stem+'.webp'
             preview=outfolder/preview_name
             make_preview(src,preview,live=is_video)
@@ -112,7 +120,7 @@ def main():
             colors=seed.get('colors') or ([seed['color']] if seed.get('color') else detect_colors(preview))
             colors=[c.lower() for c in colors if c.lower() in COLORS]
             catalog.append({'name':nice_name(src.name),'file':f'wallpapers/{kind}/{src.name}','preview':f'previews/{kind}/{preview_name}',
-                'kind':kind,'format':src.suffix.lstrip('.').upper(),'resolution':dims,'fps':fps,'colors':colors,'bytes':src.stat().st_size})
+                'kind':item_kind,'format':src.suffix.lstrip('.').upper(),'resolution':dims,'fps':fps,'colors':colors,'bytes':src.stat().st_size})
     (ROOT/'catalog.json').write_text(json.dumps(catalog,indent=2,ensure_ascii=False)+'\n')
     print(f'Catalogued {len(catalog)} wallpapers.')
 
