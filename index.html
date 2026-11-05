@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#11101a">
+  <meta name="description" content="A curated collection of still and live wallpapers, browsable by type and color.">
+  <title>Wallpapers — Xlonely</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="Xlonely wallpapers home"><span class="brand-mark">✳</span><span>Xlonely<span class="brand-muted"> / wallpapers</span></span></a>
+    <a class="github-link" href="https://github.com/LonelyOmen/xlonely-wallpapers" target="_blank" rel="noreferrer">View on GitHub <span aria-hidden="true">↗</span></a>
+  </header>
+  <main id="top">
+    <section class="hero">
+      <p class="eyebrow"><span class="eyebrow-dot"></span> PERSONAL WALLPAPER COLLECTION</p>
+      <h1>Find a scene<br><span>for your screen.</span></h1>
+      <p class="hero-copy">A little library of still and moving wallpapers. Browse by mood, color, or format, then open the original in full resolution.</p>
+      <div class="hero-stats"><div><strong id="total-count">—</strong><span>wallpapers</span></div><i></i><div><strong id="live-count">—</strong><span>live scenes</span></div><i></i><div><strong id="still-count">—</strong><span>still images</span></div></div>
+    </section>
+    <section class="library" aria-label="Wallpaper library">
+      <div class="toolbar">
+        <label class="searchbox"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Search wallpapers…" autocomplete="off"><kbd>/</kbd></label>
+        <div class="type-tabs" role="group" aria-label="Wallpaper type">
+          <button class="type-tab active" data-kind="all">All <span id="all-tab-count"></span></button><button class="type-tab" data-kind="still">Still</button><button class="type-tab" data-kind="live">Live</button>
+        </div>
+      </div>
+      <div class="filterbar"><div class="filter-title">COLOR <span>Choose a mood</span></div><div class="color-filters" id="color-filters" role="group" aria-label="Filter by color"></div><button class="clear-filter" id="clear-filters">Clear filters <span>↗</span></button></div>
+      <div class="results-line"><span id="results-count">Loading collection…</span><span>Click a card to preview</span></div>
+      <div class="grid" id="wallpaper-grid" aria-live="polite"></div>
+      <div class="empty hidden" id="empty-state"><div class="empty-icon">⌕</div><h2>No wallpapers found</h2><p>Try another search or clear your filters.</p><button id="empty-clear">Reset filters</button></div>
+    </section>
+  </main>
+  <footer><a class="brand footer-brand" href="#top"><span class="brand-mark">✳</span> Xlonely wallpapers</a><span>Made for big screens and little moments.</span><a href="https://github.com/LonelyOmen/xlonely-wallpapers" target="_blank" rel="noreferrer">Contribute on GitHub ↗</a></footer>
+  <dialog id="viewer" aria-label="Wallpaper preview"><button class="viewer-close" id="viewer-close" aria-label="Close preview">×</button><div class="viewer-media" id="viewer-media"></div><div class="viewer-info"><div><span class="viewer-kind" id="viewer-kind"></span><h2 id="viewer-name"></h2><p id="viewer-meta"></p></div><a class="download-button" id="download-link" href="#" download>Download original <span>↓</span></a></div></dialog>
+</body>
+</html>
