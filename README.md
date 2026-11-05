@@ -1,4 +1,4 @@
-# Xlonely Wallpapers
+# xLonely Wallpapers
 
 A browsable, color-filterable gallery of my still and live wallpaper collection. The project is a static website and can be hosted for free with GitHub Pages.
 
