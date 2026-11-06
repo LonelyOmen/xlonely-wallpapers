@@ -192,13 +192,19 @@ async function uploadReleaseAsset(env, releaseId, filename, contentType, size, b
   return asset;
 }
 
-async function githubAsset(request, env, assetId) {
+function contentDisposition(filename, disposition = 'inline') {
+  const safe = String(filename || 'wallpaper').replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120) || 'wallpaper';
+  return `${disposition}; filename="${safe}"`;
+}
+
+async function githubAsset(request, env, assetId, download = false, filename = 'wallpaper') {
   const headers = { accept: 'application/octet-stream' };
   if (request.headers.has('Range')) headers.range = request.headers.get('Range');
   const response = await githubApi(env, `/releases/assets/${assetId}`, { headers });
   if (!response.ok) throw new HttpError(response.status === 404 ? 404 : 502, 'Could not read the wallpaper asset from GitHub.');
   const out = new Headers(response.headers);
   out.set('cache-control', 'public, max-age=3600');
+  out.set('content-disposition', contentDisposition(filename, download ? 'attachment' : 'inline'));
   return new Response(response.body, { status: response.status, headers: out });
 }
 
@@ -295,8 +301,8 @@ async function handleApi(request, env, url) {
       kind: row.kind,
       format: row.format,
       colors: JSON.parse(row.colors_json || '[]'),
-      file: row.asset_url,
-      assetUrl: row.asset_url,
+      file: `${base}/api/assets/${row.id}`,
+      assetUrl: `${base}/api/assets/${row.id}`,
       previewUrl: row.preview_size ? `${base}/api/assets/${row.id}/preview` : null,
       bytes: 0,
     }));
@@ -410,7 +416,7 @@ async function handleApi(request, env, url) {
     if (!row) throw new HttpError(404, 'Pending submission not found.');
     const preview = adminFile[2] === 'preview';
     if (preview && !row.preview_size) throw new HttpError(404, 'Preview not uploaded.');
-    return githubAsset(request, env, preview ? row.preview_asset_id : row.asset_id);
+    return githubAsset(request, env, preview ? row.preview_asset_id : row.asset_id, false, preview ? `${row.id}-preview.webp` : row.original_name);
   }
   if (request.method === 'POST' && url.pathname === '/api/admin/review') {
     const user = await requireUser(request, env); requireAdmin(user, env);
@@ -440,7 +446,7 @@ async function handleApi(request, env, url) {
     if (!row) throw new HttpError(404, 'Wallpaper not found.');
     const preview = Boolean(assetMatch[2]);
     if (preview && !row.preview_size) throw new HttpError(404, 'Preview not found.');
-    return githubAsset(request, env, preview ? row.preview_asset_id : row.asset_id);
+    return githubAsset(request, env, preview ? row.preview_asset_id : row.asset_id, url.searchParams.get('download') === '1', preview ? `${row.id}-preview.webp` : row.original_name);
   }
   throw new HttpError(404, 'Not found.');
 }
