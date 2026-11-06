@@ -1,0 +1,24 @@
+name = "xlonely-wallpaper-community"
+main = "worker.mjs"
+compatibility_date = "2026-11-06"
+workers_dev = true
+
+[[r2_buckets]]
+binding = "WALLPAPERS"
+bucket_name = "xlonely-wallpaper-community"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "xlonely-wallpaper-community"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[vars]
+SITE_ORIGIN = "https://lonelyomen.github.io"
+SITE_URL = "https://lonelyomen.github.io/xlonely-wallpapers/"
+GITHUB_CLIENT_ID = "REPLACE_WITH_GITHUB_OAUTH_APP_CLIENT_ID"
+ADMIN_GITHUB_LOGIN = "LonelyOmen"
+DAILY_UPLOAD_LIMIT = "5"
+MAX_UPLOAD_BYTES = "99000000"
+MAX_STORAGE_BYTES = "8589934592"
+SESSION_TTL_SECONDS = "604800"

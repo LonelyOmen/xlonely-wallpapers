@@ -8,12 +8,13 @@
   <title>Wallpapers — xLonely</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script src="submission-config.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="#top" aria-label="xLonely wallpapers home"><span class="brand-mark">✳</span><span>xLonely<span class="brand-muted"> / wallpapers</span></span></a>
-    <a class="github-link" href="https://github.com/LonelyOmen/xlonely-wallpapers" target="_blank" rel="noreferrer">View on GitHub <span aria-hidden="true">↗</span></a>
+    <div class="top-actions"><button class="submit-wallpaper" id="submit-open">Submit a wallpaper <span aria-hidden="true">＋</span></button><a class="github-link" href="https://github.com/LonelyOmen/xlonely-wallpapers" target="_blank" rel="noreferrer">View on GitHub <span aria-hidden="true">↗</span></a></div>
   </header>
   <main id="top">
     <section class="hero">
@@ -36,6 +37,26 @@
     </section>
   </main>
   <footer><a class="brand footer-brand" href="#top"><span class="brand-mark">✳</span> xLonely wallpapers</a><span>Made for big screens and little moments.</span><a href="https://github.com/LonelyOmen/xlonely-wallpapers" target="_blank" rel="noreferrer">Contribute on GitHub ↗</a></footer>
+  <dialog id="submit-dialog" class="submit-dialog" aria-labelledby="submit-heading">
+    <button class="viewer-close" id="submit-close" aria-label="Close submission form">×</button>
+    <div class="submit-content">
+      <span class="viewer-kind">COMMUNITY WALLPAPERS</span>
+      <h2 id="submit-heading">Share a wallpaper</h2>
+      <p class="submit-intro">Sign in with GitHub, then send a wallpaper for review. Approved files join the public gallery.</p>
+      <div id="submit-auth" class="submit-auth"><a class="download-button" id="github-login" href="#">Continue with GitHub <span>↗</span></a><p id="submit-status" role="status"></p></div>
+      <div id="submit-user" class="submit-user hidden"><span id="submit-user-name"></span><button id="submit-logout" type="button">Sign out</button><span id="submit-quota"></span></div>
+      <form id="submit-form" class="submit-form hidden">
+        <label>Wallpaper title<input id="wall-title" name="title" maxlength="80" required placeholder="A short name for the wallpaper"></label>
+        <div class="form-row"><label>Type<select id="wall-kind" name="kind"><option value="still">Still image</option><option value="live">Live wallpaper</option></select></label><label>File<input id="wall-file" name="file" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime" required><small>Supported images and videos, under 99 MB.</small></label></div>
+        <label>Artist / creator (optional)<input id="wall-creator" maxlength="80" placeholder="Credit the artist when known"></label>
+        <label>Source or permission link (optional)<input id="wall-source" type="url" maxlength="500" placeholder="Where the wallpaper came from"></label>
+        <fieldset><legend>Color tags (choose up to 3)</legend><div class="submit-colors"><label><input type="checkbox" name="wall-color" value="red"><span>red</span></label><label><input type="checkbox" name="wall-color" value="orange"><span>orange</span></label><label><input type="checkbox" name="wall-color" value="yellow"><span>yellow</span></label><label><input type="checkbox" name="wall-color" value="green"><span>green</span></label><label><input type="checkbox" name="wall-color" value="blue"><span>blue</span></label><label><input type="checkbox" name="wall-color" value="purple"><span>purple</span></label><label><input type="checkbox" name="wall-color" value="pink"><span>pink</span></label><label><input type="checkbox" name="wall-color" value="white"><span>white</span></label><label><input type="checkbox" name="wall-color" value="black"><span>black</span></label></div></fieldset>
+        <label class="rights-check"><input id="wall-rights" type="checkbox" required><span>I have permission to share this file and included credit/source information where available.</span></label>
+        <button class="download-button submit-button" type="submit" id="submit-button">Upload for review <span>↑</span></button>
+        <p id="upload-status" class="upload-status" role="status"></p>
+      </form>
+    </div>
+  </dialog>
   <dialog id="viewer" aria-label="Wallpaper preview"><button class="viewer-close" id="viewer-close" aria-label="Close preview">×</button><div class="viewer-media" id="viewer-media"></div><div class="viewer-info"><div><span class="viewer-kind" id="viewer-kind"></span><h2 id="viewer-name"></h2><p id="viewer-meta"></p></div><a class="download-button" id="download-link" href="#">Download original <span>↗</span></a></div></dialog>
 </body>
 </html>

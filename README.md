@@ -47,3 +47,7 @@ git push
 ## Files and rights
 
 The gallery code and wallpaper assets are separate. This repository does not grant a license to reuse the wallpapers; rights remain with their respective creators or owners. Please add attribution or source links when known, and only redistribute files you have permission to publish.
+
+## Community submissions
+
+The Cloudflare upload service is maintained in [`cloudflare/`](cloudflare/README.md). It supports GitHub sign-in, up to five submissions per account per UTC day, files under 99 MB, and moderator approval before publication. New originals are kept outside Git in a private R2 bucket. Follow the [Cloudflare setup guide](cloudflare/README.md) to connect the Worker, D1 database, R2 bucket, and GitHub OAuth App before enabling the upload form.

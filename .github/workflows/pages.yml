@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'app.js'
+      - 'admin.html'
+      - 'admin.js'
+      - 'submission-config.js'
       - 'catalog.json'
       - 'favicon.svg'
       - 'index.html'
@@ -36,6 +39,9 @@ jobs:
           sparse-checkout: |
             .nojekyll
             app.js
+            admin.html
+            admin.js
+            submission-config.js
             catalog.json
             favicon.svg
             index.html
@@ -47,7 +53,7 @@ jobs:
       - name: Assemble small site artifact
         run: |
           mkdir -p _site
-          cp .nojekyll app.js catalog.json favicon.svg index.html styles.css _site/
+          cp .nojekyll admin.html admin.js app.js catalog.json favicon.svg index.html styles.css submission-config.js _site/
           cp -a previews _site/previews
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
