@@ -134,6 +134,74 @@ async function storageUsed(env) {
   return Number(result?.bytes || 0);
 }
 
+function githubRepo(env) {
+  if (!env.GITHUB_STORAGE_TOKEN || !env.GITHUB_REPO_OWNER || !env.GITHUB_REPO_NAME) {
+    throw new HttpError(503, 'GitHub community storage is not configured yet.');
+  }
+  return `${env.GITHUB_REPO_OWNER}/${env.GITHUB_REPO_NAME}`;
+}
+
+async function githubApi(env, path, options = {}) {
+  const response = await fetch(`https://api.github.com/repos/${githubRepo(env)}${path}`, {
+    ...options,
+    headers: {
+      accept: 'application/vnd.github+json',
+      authorization: `Bearer ${env.GITHUB_STORAGE_TOKEN}`,
+      'x-github-api-version': '2022-11-28',
+      'user-agent': 'xLonely-Wallpaper-Community',
+      ...(options.headers || {}),
+    },
+  });
+  return response;
+}
+
+async function createDraftRelease(env, row) {
+  const response = await githubApi(env, '/releases', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      tag_name: `community-${row.id}`,
+      target_commitish: 'main',
+      name: `Community wallpaper: ${row.title}`,
+      body: `Submitted by @${row.github_login}.\n\nCreator: ${row.creator || 'Not provided'}\nSource: ${row.source_url || 'Not provided'}\n\nThis draft release is private to repository collaborators until moderator approval.`,
+      draft: true,
+    }),
+  });
+  const release = await response.json().catch(() => ({}));
+  if (!response.ok || !release.id) throw new HttpError(502, release.message || 'Could not create a private draft release on GitHub.');
+  return release;
+}
+
+async function uploadReleaseAsset(env, releaseId, filename, contentType, size, body) {
+  const endpoint = new URL(`https://uploads.github.com/repos/${githubRepo(env)}/releases/${releaseId}/assets`);
+  endpoint.searchParams.set('name', filename.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120) || 'wallpaper');
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      accept: 'application/vnd.github+json',
+      authorization: `Bearer ${env.GITHUB_STORAGE_TOKEN}`,
+      'content-type': contentType,
+      'content-length': String(size),
+      'user-agent': 'xLonely-Wallpaper-Community',
+    },
+    body,
+  });
+  const asset = await response.json().catch(() => ({}));
+  if (!response.ok || !asset.id) throw new HttpError(502, asset.message || 'GitHub could not store this wallpaper.');
+  if (Number(asset.size) !== size) throw new HttpError(502, 'GitHub stored a different file size than expected.');
+  return asset;
+}
+
+async function githubAsset(request, env, assetId) {
+  const headers = { accept: 'application/octet-stream' };
+  if (request.headers.has('Range')) headers.range = request.headers.get('Range');
+  const response = await githubApi(env, `/releases/assets/${assetId}`, { headers });
+  if (!response.ok) throw new HttpError(response.status === 404 ? 404 : 502, 'Could not read the wallpaper asset from GitHub.');
+  const out = new Headers(response.headers);
+  out.set('cache-control', 'public, max-age=3600');
+  return new Response(response.body, { status: response.status, headers: out });
+}
+
 async function startLogin(request, env) {
   if (!env.GITHUB_CLIENT_ID || !env.SITE_ORIGIN) throw new HttpError(503, 'Community sign-in is not configured yet.');
   const state = b64url(crypto.getRandomValues(new Uint8Array(24)));
@@ -209,49 +277,6 @@ async function inspectStream(stream) {
   return { type: detectedType(prefix.subarray(0, offset)), upload };
 }
 
-function contentDisposition(filename, disposition = 'inline') {
-  const safe = filename.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120) || 'wallpaper';
-  return `${disposition}; filename="${safe}"`;
-}
-
-function rangeFor(header, size) {
-  if (!header) return null;
-  const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
-  if (!match || (!match[1] && !match[2])) return { invalid: true };
-  let offset, end;
-  if (!match[1]) {
-    const suffix = Number(match[2]);
-    if (!suffix) return { invalid: true };
-    offset = Math.max(0, size - suffix); end = size - 1;
-  } else {
-    offset = Number(match[1]); end = match[2] ? Number(match[2]) : size - 1;
-  }
-  if (offset >= size || end < offset) return { invalid: true };
-  const last = Math.min(end, size - 1);
-  return { offset, length: last - offset + 1, end: last };
-}
-
-async function serveBucketObject(request, bucket, key, size, filename, download) {
-  const range = rangeFor(request.headers.get('Range'), size);
-  if (range?.invalid) return new Response(null, { status: 416, headers: { 'content-range': `bytes */${size}` } });
-  const object = await bucket.get(key, range ? { range: request.headers } : {});
-  if (!object) throw new HttpError(404, 'Uploaded file not found.');
-  const headers = new Headers({
-    'content-type': object.httpMetadata?.contentType || 'application/octet-stream',
-    'cache-control': 'public, max-age=3600',
-    'accept-ranges': 'bytes',
-    'content-disposition': contentDisposition(filename, download ? 'attachment' : 'inline'),
-    etag: object.httpEtag,
-  });
-  if (range) {
-    headers.set('content-length', String(range.length));
-    headers.set('content-range', `bytes ${range.offset}-${range.end}/${size}`);
-    return new Response(object.body, { status: 206, headers });
-  }
-  headers.set('content-length', String(size));
-  return new Response(object.body, { headers });
-}
-
 async function handleApi(request, env, url) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204 });
   if (request.method === 'GET' && url.pathname === '/api/me') {
@@ -261,7 +286,7 @@ async function handleApi(request, env, url) {
   }
   if (request.method === 'GET' && url.pathname === '/api/wallpapers') {
     const result = await env.DB.prepare(`
-      SELECT id, title, kind, format, colors_json, preview_size
+      SELECT id, title, kind, format, colors_json, preview_size, asset_url
       FROM submissions WHERE status = 'approved' ORDER BY reviewed_at DESC
     `).all();
     const base = url.origin;
@@ -270,8 +295,8 @@ async function handleApi(request, env, url) {
       kind: row.kind,
       format: row.format,
       colors: JSON.parse(row.colors_json || '[]'),
-      file: `${base}/api/assets/${row.id}?download=1`,
-      assetUrl: `${base}/api/assets/${row.id}`,
+      file: row.asset_url,
+      assetUrl: row.asset_url,
       previewUrl: row.preview_size ? `${base}/api/assets/${row.id}/preview` : null,
       bytes: 0,
     }));
@@ -298,15 +323,15 @@ async function handleApi(request, env, url) {
     const storageLimit = Number(env.MAX_STORAGE_BYTES || DEFAULT_STORAGE_LIMIT);
     const dailyLimit = Number(env.DAILY_UPLOAD_LIMIT || DEFAULT_DAILY_LIMIT);
     const insert = await env.DB.prepare(`
-      INSERT INTO submissions (id, user_id, github_login, status, title, creator, source_url, kind, format, content_type, original_name, object_key, size, colors_json)
-      SELECT ?, ?, ?, 'reserved', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      INSERT INTO submissions (id, user_id, github_login, status, title, creator, source_url, kind, format, content_type, original_name, size, colors_json)
+      SELECT ?, ?, ?, 'reserved', ?, ?, ?, ?, ?, ?, ?, ?, ?
       WHERE (SELECT COUNT(*) FROM submissions WHERE user_id = ? AND substr(created_at, 1, 10) = date('now')) < ?
         AND (SELECT COALESCE(SUM(size + preview_size), 0) FROM submissions
              WHERE status IN ('pending', 'approved')
                 OR (status = 'reserved' AND created_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour'))) + ? <= ?
     `).bind(
       id, user.sub, user.login, title, creator, sourceUrl, kind, type.ext.toUpperCase(), contentType,
-      originalName, `${id}.${type.ext}`, size, JSON.stringify(csvColors(body.colors)),
+      originalName, size, JSON.stringify(csvColors(body.colors)),
       user.sub, dailyLimit, size, storageLimit,
     ).run();
     if (!insert.meta?.changes) {
@@ -329,19 +354,19 @@ async function handleApi(request, env, url) {
     if (!request.body) throw new HttpError(400, 'No file was uploaded.');
     const inspected = await inspectStream(request.body);
     if (inspected.type !== row.content_type) throw new HttpError(415, 'The file contents do not match the selected file type.');
-    const stored = await env.WALLPAPERS.put(row.object_key, inspected.upload, {
-      httpMetadata: { contentType: row.content_type, cacheControl: 'public, max-age=3600' },
-      customMetadata: { submissionId: id, uploader: row.github_login },
-    });
-    if (stored.size !== Number(row.size) || stored.size >= Number(env.MAX_UPLOAD_BYTES || MAX_UPLOAD_BYTES)) {
-      await env.WALLPAPERS.delete(row.object_key);
-      throw new HttpError(400, 'Uploaded file size did not match the reservation.');
+    const release = await createDraftRelease(env, row);
+    let asset;
+    try {
+      asset = await uploadReleaseAsset(env, release.id, row.original_name, row.content_type, contentLength, inspected.upload);
+    } catch (error) {
+      await githubApi(env, `/releases/${release.id}`, { method: 'DELETE' }).catch(() => {});
+      throw error;
     }
     try {
-      const changed = await env.DB.prepare("UPDATE submissions SET status = 'pending', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND user_id = ? AND status = 'reserved'").bind(id, user.sub).run();
+      const changed = await env.DB.prepare("UPDATE submissions SET status = 'pending', release_id = ?, asset_id = ?, asset_url = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND user_id = ? AND status = 'reserved'").bind(release.id, asset.id, asset.browser_download_url, id, user.sub).run();
       if (!changed.meta?.changes) throw new Error('Upload reservation changed during transfer.');
     } catch (error) {
-      await env.WALLPAPERS.delete(row.object_key);
+      await githubApi(env, `/releases/${release.id}`, { method: 'DELETE' }).catch(() => {});
       throw error;
     }
     return json({ ok: true, message: 'Uploaded for moderator review.', quota: await quotaFor(user, env) }, 201);
@@ -362,20 +387,12 @@ async function handleApi(request, env, url) {
     if (!request.body) throw new HttpError(400, 'No preview was uploaded.');
     const inspected = await inspectStream(request.body);
     if (inspected.type !== contentType) throw new HttpError(415, 'Preview content does not match its image type.');
-    const previewKey = `${id}-preview`;
-    const object = await env.WALLPAPERS.put(previewKey, inspected.upload, {
-      httpMetadata: { contentType, cacheControl: 'public, max-age=3600' },
-      customMetadata: { submissionId: id, role: 'preview' },
-    });
-    if (object.size !== length || object.size > MAX_PREVIEW_BYTES) {
-      await env.WALLPAPERS.delete(previewKey);
-      throw new HttpError(400, 'Preview size did not match the upload.');
-    }
+    const asset = await uploadReleaseAsset(env, Number(row.release_id), `${id}-preview.webp`, contentType, length, inspected.upload);
     try {
-      const changed = await env.DB.prepare("UPDATE submissions SET preview_size = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND user_id = ? AND status = 'pending' AND preview_size = 0").bind(object.size, id, user.sub).run();
+      const changed = await env.DB.prepare("UPDATE submissions SET preview_size = ?, preview_asset_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND user_id = ? AND status = 'pending' AND preview_size = 0").bind(length, asset.id, id, user.sub).run();
       if (!changed.meta?.changes) throw new Error('Preview reservation changed during transfer.');
     } catch (error) {
-      await env.WALLPAPERS.delete(previewKey);
+      await githubApi(env, `/releases/assets/${asset.id}`, { method: 'DELETE' }).catch(() => {});
       throw error;
     }
     return json({ ok: true });
@@ -393,7 +410,7 @@ async function handleApi(request, env, url) {
     if (!row) throw new HttpError(404, 'Pending submission not found.');
     const preview = adminFile[2] === 'preview';
     if (preview && !row.preview_size) throw new HttpError(404, 'Preview not uploaded.');
-    return serveBucketObject(request, env.WALLPAPERS, preview ? `${row.id}-preview` : row.object_key, preview ? Number(row.preview_size) : Number(row.size), preview ? `${row.id}-preview.webp` : row.original_name, false);
+    return githubAsset(request, env, preview ? row.preview_asset_id : row.asset_id);
   }
   if (request.method === 'POST' && url.pathname === '/api/admin/review') {
     const user = await requireUser(request, env); requireAdmin(user, env);
@@ -403,10 +420,16 @@ async function handleApi(request, env, url) {
     const row = await env.DB.prepare("SELECT * FROM submissions WHERE id = ? AND status = 'pending'").bind(id).first();
     if (!row) throw new HttpError(404, 'Pending submission not found.');
     if (decision === 'approve') {
+      const published = await githubApi(env, `/releases/${row.release_id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ draft: false }),
+      });
+      if (!published.ok) throw new HttpError(502, 'Could not publish the approved GitHub release.');
       await env.DB.prepare("UPDATE submissions SET status = 'approved', reviewed_by = ?, reviewed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND status = 'pending'").bind(user.login, id).run();
     } else if (decision === 'reject') {
-      await env.WALLPAPERS.delete(row.object_key);
-      await env.WALLPAPERS.delete(`${id}-preview`);
+      const removed = await githubApi(env, `/releases/${row.release_id}`, { method: 'DELETE' });
+      if (!removed.ok && removed.status !== 404) throw new HttpError(502, 'Could not delete the rejected GitHub draft release.');
       await env.DB.prepare("UPDATE submissions SET status = 'rejected', size = 0, preview_size = 0, reviewed_by = ?, reviewed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND status = 'pending'").bind(user.login, id).run();
     } else throw new HttpError(400, 'Decision must be approve or reject.');
     return json({ ok: true });
@@ -417,7 +440,7 @@ async function handleApi(request, env, url) {
     if (!row) throw new HttpError(404, 'Wallpaper not found.');
     const preview = Boolean(assetMatch[2]);
     if (preview && !row.preview_size) throw new HttpError(404, 'Preview not found.');
-    return serveBucketObject(request, env.WALLPAPERS, preview ? `${row.id}-preview` : row.object_key, preview ? Number(row.preview_size) : Number(row.size), preview ? `${row.id}-preview.webp` : row.original_name, url.searchParams.get('download') === '1');
+    return githubAsset(request, env, preview ? row.preview_asset_id : row.asset_id);
   }
   throw new HttpError(404, 'Not found.');
 }

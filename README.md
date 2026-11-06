@@ -50,4 +50,4 @@ The gallery code and wallpaper assets are separate. This repository does not gra
 
 ## Community submissions
 
-The Cloudflare upload service is maintained in [`cloudflare/`](cloudflare/README.md). It supports GitHub sign-in, up to five submissions per account per UTC day, files under 99 MB, and moderator approval before publication. New originals are kept outside Git in a private R2 bucket. Follow the [Cloudflare setup guide](cloudflare/README.md) to connect the Worker, D1 database, R2 bucket, and GitHub OAuth App before enabling the upload form.
+The Cloudflare upload service is maintained in [`cloudflare/`](cloudflare/README.md). It supports GitHub sign-in, up to five submissions per account per UTC day, files under 99 MB, and moderator approval before publication. New originals are kept out of Git history as draft GitHub Release assets until approval. Follow the [Cloudflare setup guide](cloudflare/README.md) to connect the Worker, D1 database, GitHub token, and OAuth App before enabling the upload form.

@@ -4,3 +4,4 @@ __pycache__/
 *.py[cod]
 _site/
 cloudflare/wrangler.toml
+cloudflare/.wrangler/
