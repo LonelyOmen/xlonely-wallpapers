@@ -6,7 +6,7 @@ const COLORS = [
 const API_BASE = (window.WALLPAPER_API_BASE || '').replace(/\/+$/, '');
 const TOKEN_KEY = 'xlonely-wallpaper-session';
 const MAX_UPLOAD_BYTES = 99_000_000;
-const state = { items: [], kind: 'all', color: null, query: '' };
+const state = { items: [], collection: 'personal', kind: 'all', color: null, query: '' };
 const $ = (selector) => document.querySelector(selector);
 const grid = $('#wallpaper-grid');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -31,13 +31,18 @@ function setupColors() {
 function filteredItems() {
   const q = state.query.trim().toLocaleLowerCase();
   return state.items.filter(item =>
+    (state.collection === 'all' || (state.collection === 'community' ? item.community : !item.community)) &&
     (state.kind === 'all' || item.kind === state.kind) &&
     (!state.color || (item.colors || []).includes(state.color)) &&
-    (!q || `${item.name} ${item.format} ${item.kind} ${(item.colors || []).join(' ')}`.toLocaleLowerCase().includes(q))
+    (!q || `${item.name} ${item.format} ${item.kind} ${item.submitter || ''} ${(item.colors || []).join(' ')}`.toLocaleLowerCase().includes(q))
   );
 }
 
 function render() {
+  document.querySelectorAll('.collection-tab').forEach(button => {
+    const active = button.dataset.collection === state.collection;
+    button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active));
+  });
   document.querySelectorAll('.type-tab').forEach(button => {
     const active = button.dataset.kind === state.kind;
     button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active));
@@ -60,9 +65,10 @@ function render() {
     const preview = image
       ? `<img src="${esc(image)}" alt="" loading="lazy">`
       : `<div class="card-placeholder"><span>${item.kind === 'live' ? '▶' : '✳'}</span><small>${esc(item.format || 'WALLPAPER')}</small></div>`;
+    const contributor = item.community && item.submitter ? `<p class="card-contributor">Shared by <span>@${esc(item.submitter)}</span></p>` : '';
     return `<article class="card" tabindex="0" role="button" data-index="${index}" aria-label="Preview ${esc(item.name)}">
       <div class="card-image">${preview}<span class="badge kind">${badge}</span><span class="badge format">${esc(item.format)}</span></div>
-      <div class="card-info"><h2 class="card-title" title="${esc(item.name)}">${esc(item.name)}</h2><div class="card-meta"><span>${meta || 'Wallpaper'}</span><span class="swatches">${swatches}</span></div></div>
+      <div class="card-info"><h2 class="card-title" title="${esc(item.name)}">${esc(item.name)}</h2>${contributor}<div class="card-meta"><span>${meta || 'Wallpaper'}</span><span class="swatches">${swatches}</span></div></div>
     </article>`;
   }).join('');
   grid.querySelectorAll('.card').forEach(card => {
@@ -86,6 +92,9 @@ function showViewer(item) {
   $('#viewer-kind').textContent = item.kind === 'live' ? 'Live wallpaper' : 'Still wallpaper';
   $('#viewer-name').textContent = item.name;
   $('#viewer-meta').textContent = [item.resolution, item.format, item.fps ? `${item.fps} FPS` : null].filter(Boolean).join('  ·  ');
+  const contributor = $('#viewer-contributor');
+  contributor.textContent = item.community && item.submitter ? `Submitted by @${item.submitter}` : '';
+  contributor.classList.toggle('hidden', !item.community || !item.submitter);
   const download = $('#download-link'); download.href = downloadUrl(item); download.target = '_blank'; download.rel = 'noreferrer';
   $('#viewer').showModal();
 }
@@ -219,13 +228,24 @@ async function loadCollection() {
     const response = await fetch('catalog.json');
     if (!response.ok) throw new Error('Could not load catalog');
     const items = await response.json();
+    const personalCount = items.length;
+    items.forEach(item => { item.community = false; });
+    let communityCount = 0;
     if (API_BASE) {
       try {
         const community = await fetch(`${API_BASE}/api/wallpapers`);
-        if (community.ok) items.push(...await community.json());
+        if (community.ok) {
+          const communityItems = await community.json();
+          communityItems.forEach(item => { item.community = true; });
+          communityCount = communityItems.length;
+          items.push(...communityItems);
+        }
       } catch {}
     }
     state.items = items;
+    $('#personal-tab-count').textContent = personalCount;
+    $('#community-tab-count').textContent = communityCount;
+    $('#everything-tab-count').textContent = items.length;
     const still = items.filter(item => item.kind === 'still').length;
     const live = items.filter(item => item.kind === 'live').length;
     $('#total-count').textContent = items.length; $('#still-count').textContent = still; $('#live-count').textContent = live;
@@ -234,6 +254,7 @@ async function loadCollection() {
 }
 
 setupColors();
+document.querySelectorAll('.collection-tab').forEach(button => button.addEventListener('click', () => { state.collection = button.dataset.collection; render(); }));
 document.querySelectorAll('.type-tab').forEach(button => button.addEventListener('click', () => { state.kind = button.dataset.kind; render(); }));
 $('#search').addEventListener('input', event => { state.query = event.target.value; render(); });
 $('#clear-filters').addEventListener('click', clearFilters); $('#empty-clear').addEventListener('click', clearFilters);

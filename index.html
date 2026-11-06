@@ -18,12 +18,17 @@
   </header>
   <main id="top">
     <section class="hero">
-      <p class="eyebrow"><span class="eyebrow-dot"></span> PERSONAL WALLPAPER COLLECTION</p>
+      <p class="eyebrow"><span class="eyebrow-dot"></span> WALLPAPERS BY XLONELY & THE COMMUNITY</p>
       <h1>Find a scene<br><span>for your screen.</span></h1>
       <p class="hero-copy">A little library of still and moving wallpapers. Browse by mood, color, or format, then open the original in full resolution.</p>
       <div class="hero-stats"><div><strong id="total-count">—</strong><span>wallpapers</span></div><i></i><div><strong id="live-count">—</strong><span>live scenes</span></div><i></i><div><strong id="still-count">—</strong><span>still images</span></div></div>
     </section>
     <section class="library" aria-label="Wallpaper library">
+      <div class="collection-tabs" role="group" aria-label="Wallpaper collection">
+        <button class="collection-tab active" data-collection="personal" aria-pressed="true">My collection <span id="personal-tab-count">0</span></button>
+        <button class="collection-tab" data-collection="community" aria-pressed="false">Community <span id="community-tab-count">0</span></button>
+        <button class="collection-tab" data-collection="all" aria-pressed="false">Everything <span id="everything-tab-count">0</span></button>
+      </div>
       <div class="toolbar">
         <label class="searchbox"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Search wallpapers…" autocomplete="off"><kbd>/</kbd></label>
         <div class="type-tabs" role="group" aria-label="Wallpaper type">
@@ -57,6 +62,6 @@
       </form>
     </div>
   </dialog>
-  <dialog id="viewer" aria-label="Wallpaper preview"><button class="viewer-close" id="viewer-close" aria-label="Close preview">×</button><div class="viewer-media" id="viewer-media"></div><div class="viewer-info"><div><span class="viewer-kind" id="viewer-kind"></span><h2 id="viewer-name"></h2><p id="viewer-meta"></p></div><a class="download-button" id="download-link" href="#">Download original <span>↗</span></a></div></dialog>
+  <dialog id="viewer" aria-label="Wallpaper preview"><button class="viewer-close" id="viewer-close" aria-label="Close preview">×</button><div class="viewer-media" id="viewer-media"></div><div class="viewer-info"><div><span class="viewer-kind" id="viewer-kind"></span><h2 id="viewer-name"></h2><p id="viewer-meta"></p><p class="viewer-contributor" id="viewer-contributor"></p></div><a class="download-button" id="download-link" href="#">Download original <span>↗</span></a></div></dialog>
 </body>
 </html>

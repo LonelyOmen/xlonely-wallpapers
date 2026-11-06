@@ -292,12 +292,13 @@ async function handleApi(request, env, url) {
   }
   if (request.method === 'GET' && url.pathname === '/api/wallpapers') {
     const result = await env.DB.prepare(`
-      SELECT id, title, kind, format, colors_json, preview_size, asset_url
+      SELECT id, title, kind, format, colors_json, preview_size, asset_url, github_login
       FROM submissions WHERE status = 'approved' ORDER BY reviewed_at DESC
     `).all();
     const base = url.origin;
     const items = (result.results || []).map(row => ({
       name: row.title,
+      submitter: row.github_login,
       kind: row.kind,
       format: row.format,
       colors: JSON.parse(row.colors_json || '[]'),
