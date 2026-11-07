@@ -1,0 +1,41 @@
+name: Build CantonyEddy wallpaper thumbnails
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  thumbnails:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out gallery
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install image tools
+        run: python -m pip install --disable-pip-version-check Pillow requests
+
+      - name: Generate thumbnails from Assets/
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/generate_cantony_thumbnails.py
+
+      - name: Create or update thumbnail release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag=cantony-thumbnails
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" \
+              --title "CantonyEddy wallpaper previews" \
+              --notes "Generated WebP gallery previews for image files under Assets/ in [CantonyEddy/MyWallpaper](https://github.com/CantonyEddy/MyWallpaper). Original wallpapers remain hosted in the source repository."
+          fi
+          gh release upload "$tag" thumbnails/*.webp --clobber

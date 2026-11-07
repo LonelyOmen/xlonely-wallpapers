@@ -17,6 +17,7 @@ const assetUrl = (item) => item.assetUrl || (/^https?:\/\//i.test(item.file || '
 const downloadUrl = (item) => item.downloadUrl || (item.assetUrl ? `${item.assetUrl}?download=1` : githubDownloadUrl(item.file));
 const previewUrl = (item) => item.previewUrl || url(item.preview || '');
 const REPO_SOURCE = { owner: 'CantonyEddy', repo: 'MyWallpaper', url: 'https://github.com/CantonyEddy/MyWallpaper' };
+const CANTONY_THUMBNAIL_RELEASE = 'https://github.com/LonelyOmen/xlonely-wallpapers/releases/download/cantony-thumbnails';
 const SOURCE_CACHE_KEY = 'xlonely-cantony-wallpapers-v2';
 const SOURCE_CACHE_TTL = 60 * 60 * 1000;
 const PAGE_SIZE = 120;
@@ -63,7 +64,7 @@ async function loadCantonyCollection() {
       file: raw,
       assetUrl: raw,
       downloadUrl: download,
-      previewUrl: imageExts.has(ext) ? raw : null,
+      previewUrl: imageExts.has(ext) ? `${CANTONY_THUMBNAIL_RELEASE}/${entry.sha}.webp` : null,
       kind: videoExts.has(ext) || ext === 'gif' ? 'live' : 'still',
       format: ext.toUpperCase(),
       resolution: null,
@@ -143,7 +144,7 @@ function render() {
     }).join('');
     const image = previewUrl(item);
     const preview = image
-      ? `<img src="${esc(image)}" alt="" loading="lazy">`
+      ? `<img src="${esc(image)}" alt="" loading="lazy"${item.collection === 'cantony' ? ` data-fallback="${esc(assetUrl(item))}" onerror="if(this.dataset.fallback){this.onerror=null;this.src=this.dataset.fallback}"` : ''}>`
       : `<div class="card-placeholder"><span>${item.kind === 'live' ? '▶' : '✳'}</span><small>${esc(item.format || 'WALLPAPER')}</small></div>`;
     const contributor = item.submitter
       ? `<p class="card-contributor">Shared by <span>@${esc(item.submitter)}</span></p>`

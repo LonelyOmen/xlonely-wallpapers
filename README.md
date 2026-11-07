@@ -50,7 +50,9 @@ The gallery code and wallpaper assets are separate. This repository does not gra
 
 ## CantonyEddy's wallpaper collection
 
-The gallery includes a separate **CantonyEddy** tab that reads supported image and video files only from the `Assets/` folder in [CantonyEddy/MyWallpaper](https://github.com/CantonyEddy/MyWallpaper) and loads the originals directly from that repository. It does not clone or copy his large collection into this repository. Folders inside `Assets/` become categories, and each card links back to the source repository for credit. GitHub's public file listing is cached in each visitor's browser for one hour.
+The gallery includes a separate **CantonyEddy** tab that reads supported image and video files only from the `Assets/` folder in [CantonyEddy/MyWallpaper](https://github.com/CantonyEddy/MyWallpaper). Folders inside `Assets/` become categories, and each card links back to the source repository for credit. The site uses small WebP card previews stored as assets in the `cantony-thumbnails` GitHub Release; opening or downloading a wallpaper still uses the original file from the source repository. The generator uses GitHub's API and downloads only image files as it processes them, so it does not clone the large source repository.
+
+After pushing the workflow, build the previews from **Actions → Build CantonyEddy wallpaper thumbnails → Run workflow**. Run it again when the source collection changes to refresh the release assets. The workflow needs the repository's default `GITHUB_TOKEN` with **Contents: Read and write** permission; set this under **Settings → Actions → General → Workflow permissions** if the release upload is denied. GitHub allows up to 1,000 assets on one release and does not set a total release size or bandwidth cap, so the current collection fits in its dedicated release ([GitHub Releases documentation](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases)).
 
 ## Community submissions
 
