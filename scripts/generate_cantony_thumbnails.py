@@ -30,7 +30,19 @@ def api_json(url):
 
 
 def collect_images(branch):
-    pending = [("Assets", None)]
+    root_url = f"{API}/contents?ref={requests.utils.quote(branch, safe='')}"
+    root_entries = api_json(root_url)
+    if isinstance(root_entries, dict):
+        root_entries = [root_entries]
+    asset_root = next((entry for entry in root_entries
+                       if entry.get("type") == "dir" and entry.get("name", "").casefold() == "assets"), None)
+    if not asset_root:
+        names = ", ".join(entry.get("name", "?") for entry in root_entries)
+        raise RuntimeError(f"Could not find the root Assets/assets folder. Repository root contains: {names}")
+
+    # GitHub's Contents API path lookup is case-sensitive. Discover the actual
+    # capitalization from the repository root, then recurse only into that tree.
+    pending = [(asset_root["path"], asset_root.get("sha"))]
     images = []
     while pending:
         path, known_sha = pending.pop()
