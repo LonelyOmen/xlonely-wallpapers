@@ -50,7 +50,7 @@ The gallery code and wallpaper assets are separate. This repository does not gra
 
 ## CantonyEddy's wallpaper collection
 
-The gallery includes a separate **CantonyEddy** tab that reads supported image and video file paths from [CantonyEddy/MyWallpaper](https://github.com/CantonyEddy/MyWallpaper) and loads the original files directly from that repository. It does not clone or copy his large collection into this repository. The first folder in each file path becomes its category, and each card links back to the source repository for credit. GitHub's public file listing is cached in each visitor's browser for one hour.
+The gallery includes a separate **CantonyEddy** tab that reads supported image and video files only from the `Assets/` folder in [CantonyEddy/MyWallpaper](https://github.com/CantonyEddy/MyWallpaper) and loads the originals directly from that repository. It does not clone or copy his large collection into this repository. Folders inside `Assets/` become categories, and each card links back to the source repository for credit. GitHub's public file listing is cached in each visitor's browser for one hour.
 
 ## Community submissions
 

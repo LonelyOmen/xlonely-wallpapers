@@ -17,7 +17,7 @@ const assetUrl = (item) => item.assetUrl || (/^https?:\/\//i.test(item.file || '
 const downloadUrl = (item) => item.downloadUrl || (item.assetUrl ? `${item.assetUrl}?download=1` : githubDownloadUrl(item.file));
 const previewUrl = (item) => item.previewUrl || url(item.preview || '');
 const REPO_SOURCE = { owner: 'CantonyEddy', repo: 'MyWallpaper', url: 'https://github.com/CantonyEddy/MyWallpaper' };
-const SOURCE_CACHE_KEY = 'xlonely-cantony-wallpapers-v1';
+const SOURCE_CACHE_KEY = 'xlonely-cantony-wallpapers-v2';
 const SOURCE_CACHE_TTL = 60 * 60 * 1000;
 const PAGE_SIZE = 120;
 
@@ -25,12 +25,8 @@ function externalPath(path) { return path.split('/').map(encodeURIComponent).joi
 
 function sourceCategoryFor(path) {
   const parts = path.split('/').filter(Boolean);
-  if (parts.length < 2) return 'Unsorted';
-  const first = parts[0].toLocaleLowerCase();
-  if (['assets', 'wallpaper', 'wallpapers', 'image', 'images', 'static', 'live'].includes(first)) {
-    return parts.length > 2 ? parts[1] : 'Unsorted';
-  }
-  return parts[0];
+  if (parts.length < 2 || parts[0].toLocaleLowerCase() !== 'assets') return null;
+  return parts.length > 2 ? parts[1] : 'Unsorted';
 }
 
 function prettyCategory(value) {
@@ -55,7 +51,7 @@ async function loadCantonyCollection() {
 
   const imageExts = new Set(['jpg','jpeg','png','webp','gif','bmp','avif']);
   const videoExts = new Set(['mp4','webm','mov','mkv','avi']);
-  const items = tree.tree.filter(entry => entry.type === 'blob').flatMap(entry => {
+  const items = tree.tree.filter(entry => entry.type === 'blob' && entry.path.split('/')[0].toLocaleLowerCase() === 'assets').flatMap(entry => {
     const ext = entry.path.split('.').pop().toLowerCase();
     if (!imageExts.has(ext) && !videoExts.has(ext)) return [];
     const path = externalPath(entry.path);
