@@ -27,7 +27,9 @@ function sourceCategoryFor(path) {
   const parts = path.split('/').filter(Boolean);
   if (parts.length < 2) return 'Unsorted';
   const first = parts[0].toLocaleLowerCase();
-  if (['wallpaper', 'wallpapers', 'image', 'images', 'static', 'live'].includes(first) && parts.length > 2) return parts[1];
+  if (['assets', 'wallpaper', 'wallpapers', 'image', 'images', 'static', 'live'].includes(first)) {
+    return parts.length > 2 ? parts[1] : 'Unsorted';
+  }
   return parts[0];
 }
 
