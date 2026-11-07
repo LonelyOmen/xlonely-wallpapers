@@ -6,16 +6,82 @@ const COLORS = [
 const API_BASE = (window.WALLPAPER_API_BASE || '').replace(/\/+$/, '');
 const TOKEN_KEY = 'xlonely-wallpaper-session';
 const MAX_UPLOAD_BYTES = 99_000_000;
-const state = { items: [], collection: 'personal', kind: 'all', color: null, query: '' };
+const state = { items: [], collection: 'personal', kind: 'all', color: null, sourceCategory: null, visibleCount: 120, query: '' };
 const $ = (selector) => document.querySelector(selector);
 const grid = $('#wallpaper-grid');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const url = (path) => path.split('/').map(encodeURIComponent).join('/');
 const rawAssetUrl = (path) => `https://raw.githubusercontent.com/LonelyOmen/xlonely-wallpapers/main/${url(path)}`;
 const githubDownloadUrl = (path) => `https://github.com/LonelyOmen/xlonely-wallpapers/raw/refs/heads/main/${url(path)}?download=1`;
-const assetUrl = (item) => item.assetUrl || rawAssetUrl(item.file);
-const downloadUrl = (item) => item.assetUrl ? `${item.assetUrl}?download=1` : githubDownloadUrl(item.file);
+const assetUrl = (item) => item.assetUrl || (/^https?:\/\//i.test(item.file || '') ? item.file : rawAssetUrl(item.file));
+const downloadUrl = (item) => item.downloadUrl || (item.assetUrl ? `${item.assetUrl}?download=1` : githubDownloadUrl(item.file));
 const previewUrl = (item) => item.previewUrl || url(item.preview || '');
+const REPO_SOURCE = { owner: 'CantonyEddy', repo: 'MyWallpaper', url: 'https://github.com/CantonyEddy/MyWallpaper' };
+const SOURCE_CACHE_KEY = 'xlonely-cantony-wallpapers-v1';
+const SOURCE_CACHE_TTL = 60 * 60 * 1000;
+const PAGE_SIZE = 120;
+
+function externalPath(path) { return path.split('/').map(encodeURIComponent).join('/'); }
+
+function sourceCategoryFor(path) {
+  const parts = path.split('/').filter(Boolean);
+  if (parts.length < 2) return 'Unsorted';
+  const first = parts[0].toLocaleLowerCase();
+  if (['wallpaper', 'wallpapers', 'image', 'images', 'static', 'live'].includes(first) && parts.length > 2) return parts[1];
+  return parts[0];
+}
+
+function prettyCategory(value) {
+  return String(value).replace(/[_-]+/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+}
+
+async function loadCantonyCollection() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(SOURCE_CACHE_KEY) || 'null');
+    if (cached && Date.now() - cached.savedAt < SOURCE_CACHE_TTL && Array.isArray(cached.items)) return cached;
+  } catch {}
+
+  const headers = { accept: 'application/vnd.github+json' };
+  const repoResponse = await fetch(`https://api.github.com/repos/${REPO_SOURCE.owner}/${REPO_SOURCE.repo}`, { headers });
+  if (!repoResponse.ok) throw new Error(`GitHub repository lookup returned ${repoResponse.status}.`);
+  const repo = await repoResponse.json();
+  const branch = repo.default_branch || 'main';
+  const treeResponse = await fetch(`https://api.github.com/repos/${REPO_SOURCE.owner}/${REPO_SOURCE.repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`, { headers });
+  if (!treeResponse.ok) throw new Error(`GitHub file list returned ${treeResponse.status}.`);
+  const tree = await treeResponse.json();
+  if (!Array.isArray(tree.tree)) throw new Error('GitHub returned an unexpected file list.');
+
+  const imageExts = new Set(['jpg','jpeg','png','webp','gif','bmp','avif']);
+  const videoExts = new Set(['mp4','webm','mov','mkv','avi']);
+  const items = tree.tree.filter(entry => entry.type === 'blob').flatMap(entry => {
+    const ext = entry.path.split('.').pop().toLowerCase();
+    if (!imageExts.has(ext) && !videoExts.has(ext)) return [];
+    const path = externalPath(entry.path);
+    const raw = `https://raw.githubusercontent.com/${REPO_SOURCE.owner}/${REPO_SOURCE.repo}/${encodeURIComponent(branch)}/${path}`;
+    const download = `https://github.com/${REPO_SOURCE.owner}/${REPO_SOURCE.repo}/raw/refs/heads/${encodeURIComponent(branch)}/${path}?download=1`;
+    const category = sourceCategoryFor(entry.path);
+    return [{
+      name: entry.path.split('/').pop().replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '),
+      file: raw,
+      assetUrl: raw,
+      downloadUrl: download,
+      previewUrl: imageExts.has(ext) ? raw : null,
+      kind: videoExts.has(ext) || ext === 'gif' ? 'live' : 'still',
+      format: ext.toUpperCase(),
+      resolution: null,
+      fps: null,
+      colors: [],
+      bytes: Number(entry.size) || 0,
+      collection: 'cantony',
+      creditName: REPO_SOURCE.owner,
+      creditUrl: REPO_SOURCE.url,
+      sourceCategory: category,
+    }];
+  });
+  const result = { savedAt: Date.now(), items, truncated: Boolean(tree.truncated) };
+  try { localStorage.setItem(SOURCE_CACHE_KEY, JSON.stringify(result)); } catch {}
+  return result;
+}
 
 function setupColors() {
   const root = $('#color-filters');
@@ -31,10 +97,11 @@ function setupColors() {
 function filteredItems() {
   const q = state.query.trim().toLocaleLowerCase();
   return state.items.filter(item =>
-    (state.collection === 'all' || (state.collection === 'community' ? item.community : !item.community)) &&
+    (state.collection === 'all' || (item.collection || 'personal') === state.collection) &&
     (state.kind === 'all' || item.kind === state.kind) &&
+    (state.collection !== 'cantony' || !state.sourceCategory || item.sourceCategory === state.sourceCategory) &&
     (!state.color || (item.colors || []).includes(state.color)) &&
-    (!q || `${item.name} ${item.format} ${item.kind} ${item.submitter || ''} ${(item.colors || []).join(' ')}`.toLocaleLowerCase().includes(q))
+    (!q || `${item.name} ${item.format} ${item.kind} ${item.submitter || ''} ${item.creditName || ''} ${item.sourceCategory || ''} ${(item.colors || []).join(' ')}`.toLocaleLowerCase().includes(q))
   );
 }
 
@@ -51,10 +118,25 @@ function render() {
     const active = button.dataset.color === state.color;
     button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active));
   });
+  const categoryBar = $('#source-category-bar');
+  const categoryRoot = $('#source-category-filters');
+  const categories = [...new Set(state.items.filter(item => item.collection === 'cantony').map(item => item.sourceCategory || 'Unsorted'))].sort((a, b) => a.localeCompare(b));
+  categoryBar.classList.toggle('hidden', state.collection !== 'cantony' || categories.length === 0);
+  if (state.sourceCategory && !categories.includes(state.sourceCategory)) state.sourceCategory = null;
+  categoryRoot.innerHTML = `<button class="source-category-tab${state.sourceCategory === null ? ' active' : ''}" data-category="">All categories</button>` + categories.map(category =>
+    `<button class="source-category-tab${state.sourceCategory === category ? ' active' : ''}" data-category="${esc(category)}">${esc(prettyCategory(category))}</button>`
+  ).join('');
+  categoryRoot.querySelectorAll('.source-category-tab').forEach(button => button.addEventListener('click', () => {
+    state.sourceCategory = button.dataset.category || null; state.visibleCount = PAGE_SIZE; render();
+  }));
   const items = filteredItems();
   $('#results-count').textContent = `${items.length} ${items.length === 1 ? 'wallpaper' : 'wallpapers'}`;
   $('#empty-state').classList.toggle('hidden', items.length !== 0);
-  grid.innerHTML = items.map((item, index) => {
+  const visibleItems = items.slice(0, state.visibleCount);
+  const loadMore = $('#load-more');
+  loadMore.classList.toggle('hidden', items.length <= visibleItems.length);
+  if (items.length > visibleItems.length) loadMore.textContent = `Load ${Math.min(PAGE_SIZE, items.length - visibleItems.length)} more (${items.length - visibleItems.length} remaining)`;
+  grid.innerHTML = visibleItems.map((item, index) => {
     const badge = item.kind === 'live' ? '▶ LIVE' : '▧ STILL';
     const meta = [item.resolution, item.fps ? `${item.fps} FPS` : null].filter(Boolean).map(esc).join('<span>·</span>');
     const swatches = (item.colors || []).slice(0, 4).map(color => {
@@ -65,16 +147,21 @@ function render() {
     const preview = image
       ? `<img src="${esc(image)}" alt="" loading="lazy">`
       : `<div class="card-placeholder"><span>${item.kind === 'live' ? '▶' : '✳'}</span><small>${esc(item.format || 'WALLPAPER')}</small></div>`;
-    const contributor = item.community && item.submitter ? `<p class="card-contributor">Shared by <span>@${esc(item.submitter)}</span></p>` : '';
+    const contributor = item.submitter
+      ? `<p class="card-contributor">Shared by <span>@${esc(item.submitter)}</span></p>`
+      : item.creditName
+        ? `<p class="card-contributor">Source: <a href="${esc(item.creditUrl || REPO_SOURCE.url)}" target="_blank" rel="noreferrer">${esc(item.creditName)}</a></p>`
+        : '';
+    const category = item.collection === 'cantony' ? `<span class="card-category">${esc(prettyCategory(item.sourceCategory || 'Unsorted'))}</span>` : '';
     return `<article class="card" tabindex="0" role="button" data-index="${index}" aria-label="Preview ${esc(item.name)}">
       <div class="card-image">${preview}<span class="badge kind">${badge}</span><span class="badge format">${esc(item.format)}</span></div>
-      <div class="card-info"><h2 class="card-title" title="${esc(item.name)}">${esc(item.name)}</h2>${contributor}<div class="card-meta"><span>${meta || 'Wallpaper'}</span><span class="swatches">${swatches}</span></div></div>
+      <div class="card-info"><h2 class="card-title" title="${esc(item.name)}">${esc(item.name)}</h2>${category}${contributor}<div class="card-meta"><span>${meta || 'Wallpaper'}</span><span class="swatches">${swatches}</span></div></div>
     </article>`;
   }).join('');
   grid.querySelectorAll('.card').forEach(card => {
-    const open = () => showViewer(items[Number(card.dataset.index)]);
+    const open = event => { if (!event.target.closest('a')) showViewer(items[Number(card.dataset.index)]); };
     card.addEventListener('click', open);
-    card.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
+    card.addEventListener('keydown', event => { if (event.target.closest('a')) return; if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(event); } });
   });
 }
 
@@ -91,16 +178,26 @@ function showViewer(item) {
   media.append(node);
   $('#viewer-kind').textContent = item.kind === 'live' ? 'Live wallpaper' : 'Still wallpaper';
   $('#viewer-name').textContent = item.name;
-  $('#viewer-meta').textContent = [item.resolution, item.format, item.fps ? `${item.fps} FPS` : null].filter(Boolean).join('  ·  ');
+  $('#viewer-meta').textContent = [item.resolution, item.format, item.fps ? `${item.fps} FPS` : null, item.sourceCategory ? `Category: ${prettyCategory(item.sourceCategory)}` : null].filter(Boolean).join('  ·  ');
   const contributor = $('#viewer-contributor');
-  contributor.textContent = item.community && item.submitter ? `Submitted by @${item.submitter}` : '';
-  contributor.classList.toggle('hidden', !item.community || !item.submitter);
+  contributor.replaceChildren();
+  if (item.submitter) {
+    contributor.textContent = `Submitted by @${item.submitter}`;
+    contributor.classList.remove('hidden');
+  } else if (item.creditName) {
+    contributor.append(document.createTextNode('Source: '));
+    const link = document.createElement('a');
+    link.href = item.creditUrl || REPO_SOURCE.url; link.target = '_blank'; link.rel = 'noreferrer'; link.textContent = item.creditName;
+    contributor.append(link); contributor.classList.remove('hidden');
+  } else {
+    contributor.classList.add('hidden');
+  }
   const download = $('#download-link'); download.href = downloadUrl(item); download.target = '_blank'; download.rel = 'noreferrer';
   $('#viewer').showModal();
 }
 
 function clearFilters() {
-  state.kind = 'all'; state.color = null; state.query = ''; $('#search').value = ''; render();
+  state.kind = 'all'; state.color = null; state.sourceCategory = null; state.query = ''; state.visibleCount = PAGE_SIZE; $('#search').value = ''; render();
 }
 
 async function createPreview(file, kind) {
@@ -228,23 +325,36 @@ async function loadCollection() {
     const response = await fetch('catalog.json');
     if (!response.ok) throw new Error('Could not load catalog');
     const items = await response.json();
-    const personalCount = items.length;
-    items.forEach(item => { item.community = false; });
+    items.forEach(item => { item.collection ||= 'personal'; });
+    const personalCount = items.filter(item => item.collection === 'personal').length;
     let communityCount = 0;
     if (API_BASE) {
       try {
         const community = await fetch(`${API_BASE}/api/wallpapers`);
         if (community.ok) {
           const communityItems = await community.json();
-          communityItems.forEach(item => { item.community = true; });
+          communityItems.forEach(item => { item.collection = 'community'; });
           communityCount = communityItems.length;
           items.push(...communityItems);
         }
       } catch {}
     }
+    let cantonyItems = [];
+    try {
+      const source = await loadCantonyCollection();
+      cantonyItems = source.items;
+      $('#source-status').textContent = source.truncated ? 'Showing the files GitHub returned; its file listing is truncated for this very large repository.' : '';
+      $('#source-status').classList.toggle('hidden', !source.truncated);
+    } catch (error) {
+      $('#source-status').textContent = `Could not load CantonyEddy’s GitHub wallpaper list (${error.message}).`;
+      $('#source-status').classList.remove('hidden');
+      console.warn('Could not load CantonyEddy wallpaper list:', error);
+    }
+    items.push(...cantonyItems);
     state.items = items;
     $('#personal-tab-count').textContent = personalCount;
     $('#community-tab-count').textContent = communityCount;
+    $('#cantony-tab-count').textContent = cantonyItems.length;
     $('#everything-tab-count').textContent = items.length;
     const still = items.filter(item => item.kind === 'still').length;
     const live = items.filter(item => item.kind === 'live').length;
@@ -254,9 +364,17 @@ async function loadCollection() {
 }
 
 setupColors();
-document.querySelectorAll('.collection-tab').forEach(button => button.addEventListener('click', () => { state.collection = button.dataset.collection; render(); }));
-document.querySelectorAll('.type-tab').forEach(button => button.addEventListener('click', () => { state.kind = button.dataset.kind; render(); }));
-$('#search').addEventListener('input', event => { state.query = event.target.value; render(); });
+document.querySelectorAll('.collection-tab').forEach(button => button.addEventListener('click', () => { state.collection = button.dataset.collection; state.sourceCategory = null; state.visibleCount = PAGE_SIZE; render(); }));
+document.querySelectorAll('.type-tab').forEach(button => button.addEventListener('click', () => { state.kind = button.dataset.kind; state.visibleCount = PAGE_SIZE; render(); }));
+$('#search').addEventListener('input', event => { state.query = event.target.value; state.visibleCount = PAGE_SIZE; render(); });
+$('#load-more').addEventListener('click', () => { state.visibleCount += PAGE_SIZE; render(); });
+$('#refresh-source').addEventListener('click', async event => {
+  const button = event.currentTarget;
+  button.disabled = true; button.textContent = 'Refreshing…';
+  try { localStorage.removeItem(SOURCE_CACHE_KEY); } catch {}
+  await loadCollection();
+  button.disabled = false; button.textContent = 'Refresh source';
+});
 $('#clear-filters').addEventListener('click', clearFilters); $('#empty-clear').addEventListener('click', clearFilters);
 $('#viewer-close').addEventListener('click', () => $('#viewer').close());
 $('#viewer').addEventListener('click', event => { if (event.target === $('#viewer')) $('#viewer').close(); });

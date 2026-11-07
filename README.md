@@ -48,6 +48,10 @@ git push
 
 The gallery code and wallpaper assets are separate. This repository does not grant a license to reuse the wallpapers; rights remain with their respective creators or owners. Please add attribution or source links when known, and only redistribute files you have permission to publish.
 
+## CantonyEddy's wallpaper collection
+
+The gallery includes a separate **CantonyEddy** tab that reads supported image and video file paths from [CantonyEddy/MyWallpaper](https://github.com/CantonyEddy/MyWallpaper) and loads the original files directly from that repository. It does not clone or copy his large collection into this repository. The first folder in each file path becomes its category, and each card links back to the source repository for credit. GitHub's public file listing is cached in each visitor's browser for one hour.
+
 ## Community submissions
 
 The Cloudflare upload service is maintained in [`cloudflare/`](cloudflare/README.md). It supports GitHub sign-in, up to five submissions per account per UTC day, files under 99 MB, and moderator approval before publication. New originals are kept out of Git history as draft GitHub Release assets until approval. Follow the [Cloudflare setup guide](cloudflare/README.md) to connect the Worker, D1 database, GitHub token, and OAuth App before enabling the upload form.

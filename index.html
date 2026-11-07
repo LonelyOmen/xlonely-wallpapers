@@ -27,17 +27,21 @@
       <div class="collection-tabs" role="group" aria-label="Wallpaper collection">
         <button class="collection-tab active" data-collection="personal" aria-pressed="true">My collection <span id="personal-tab-count">0</span></button>
         <button class="collection-tab" data-collection="community" aria-pressed="false">Community <span id="community-tab-count">0</span></button>
+        <button class="collection-tab" data-collection="cantony" aria-pressed="false">CantonyEddy <span id="cantony-tab-count">0</span></button>
         <button class="collection-tab" data-collection="all" aria-pressed="false">Everything <span id="everything-tab-count">0</span></button>
       </div>
+      <p id="source-status" class="source-status hidden" role="status"></p>
       <div class="toolbar">
         <label class="searchbox"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Search wallpapers…" autocomplete="off"><kbd>/</kbd></label>
         <div class="type-tabs" role="group" aria-label="Wallpaper type">
           <button class="type-tab active" data-kind="all">All <span id="all-tab-count"></span></button><button class="type-tab" data-kind="still">Still</button><button class="type-tab" data-kind="live">Live</button>
         </div>
       </div>
+      <div class="source-category-bar hidden" id="source-category-bar"><div class="filter-title">CATEGORY <span>From CantonyEddy’s folders</span></div><div class="source-category-filters" id="source-category-filters" role="group" aria-label="Filter by source category"></div><button id="refresh-source" class="refresh-source" type="button">Refresh source</button></div>
       <div class="filterbar"><div class="filter-title">COLOR <span>Choose a mood</span></div><div class="color-filters" id="color-filters" role="group" aria-label="Filter by color"></div><button class="clear-filter" id="clear-filters">Clear filters <span>↗</span></button></div>
       <div class="results-line"><span id="results-count">Loading collection…</span><span>Click a card to preview</span></div>
       <div class="grid" id="wallpaper-grid" aria-live="polite"></div>
+      <div class="load-more-wrap"><button id="load-more" class="load-more hidden" type="button">Load more wallpapers</button></div>
       <div class="empty hidden" id="empty-state"><div class="empty-icon">⌕</div><h2>No wallpapers found</h2><p>Try another search or clear your filters.</p><button id="empty-clear">Reset filters</button></div>
     </section>
   </main>
